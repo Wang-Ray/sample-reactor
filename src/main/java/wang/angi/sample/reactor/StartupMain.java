@@ -4,6 +4,7 @@ import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.Disposable;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -58,26 +59,27 @@ public class StartupMain {
 
         Flux.empty();
         Flux.never();
-        Flux.error(new Exception("some error"));
+        Flux.error(new Exception("some error")).subscribe(System.out::println);
         Mono.just(1);
         Mono.justOrEmpty(1);
         Mono.justOrEmpty(null);
         Mono.justOrEmpty(Optional.ofNullable(null));
 
-        Flux.just(1, 2, 3, 4, 5, 6).map(i -> {
-            logger.info("map0: " + i);
-            return i / (i - 4);
+        Flux.just(0, 2, 3, 4, 5, 6).map(i -> {
+            logger.info("map-1: " + i);
+            return i / (i - 3);
         }).map(i -> {
-            logger.info("map1: " + i);
-            return i * 2;
+            logger.info("map0: " + i);
+            return i * 1;
         }).subscribe(i -> {
             try {
-                TimeUnit.SECONDS.sleep(20);
+                TimeUnit.SECONDS.sleep(19);
             } catch (Throwable e) {
                 e.printStackTrace();
             }
             logger.info(i + "");
         }, System.err::println);
+
         logger.info("main over");
     }
 }

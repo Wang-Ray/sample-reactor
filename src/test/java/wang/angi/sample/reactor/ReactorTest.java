@@ -7,7 +7,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
+import reactor.util.function.Tuple2;
 
+import java.time.Duration;
 import java.util.Date;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -26,7 +28,7 @@ public class ReactorTest {
 
     @Test
     public void testViaStepVerifier() throws Exception {
-        StepVerifier.create(generateFluxFrom1To6())
+        StepVerifier.create(Flux.range(1,6))
                 .expectNext(1, 2, 3, 4, 5, 6)
                 .expectComplete()
                 .verify();
@@ -121,5 +123,66 @@ public class ReactorTest {
                     return count + 1;
                 }, System.out::println)     // 1
                 .subscribe(System.out::println);
+    }
+
+    @Test
+    public void testMap() {
+        StepVerifier.create(
+                Flux.range(0, 6)
+                        .map(i -> i * 2))
+                .expectNext(0, 2, 4, 6, 8, 10).verifyComplete();
+
+    }
+
+    @Test
+    public void testFlatMap() {
+        // d/a/e/b/f/c
+        StepVerifier.create(
+                Flux.just("abc", "def")
+                        .flatMap(i -> Flux.fromArray(i.split("\\s*"))
+                                .delayElements(Duration.ofMillis(100)))
+                        .doOnNext(System.out::println))
+                .expectNextCount(6).verifyComplete();
+    }
+
+    @Test
+    public void testConcatMap() {
+        // a/b/c/d/e/f
+        StepVerifier.create(
+                Flux.just("abc", "def")
+                        .concatMap(i -> Flux.fromArray(i.split("\\s*"))
+                                .delayElements(Duration.ofMillis(100)))
+                        .doOnNext(System.out::println))
+                .expectNextCount(6).verifyComplete();
+    }
+
+    @Test
+    public void testFlatMapSequential() {
+        // a/c/b/d/f/e
+        StepVerifier.create(
+                Flux.just("abc", "def")
+                        .flatMapSequential(i -> Flux.fromArray(i.split("\\s*"))
+                                .delayElements(Duration.ofMillis(100)))
+                        .doOnNext(System.out::println))
+                .expectNextCount(6).verifyComplete();
+    }
+
+    @Test
+    public void testFilter() {
+        StepVerifier.create(
+                Flux.range(1, 6)
+                        .filter(i -> i % 2 == 1)
+                        .map(i -> i * i))
+                .expectNext(1, 9, 25)
+                .verifyComplete();
+    }
+
+    @Test
+    public void testZip() {
+        StepVerifier.create(
+                Flux.zip(Flux.range(0,2),Flux.range(5,2)).doOnNext(System.out::println))
+                .expectNextCount(2)
+                .verifyComplete();
+
     }
 }
