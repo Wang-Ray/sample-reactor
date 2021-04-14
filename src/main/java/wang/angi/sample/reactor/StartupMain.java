@@ -59,7 +59,7 @@ public class StartupMain {
 
         Flux.empty();
         Flux.never();
-        Flux.error(new Exception("some error")).subscribe(System.out::println);
+        Flux.error(new Exception("some error")).subscribe(System.out::println, System.err::println);
         Mono.just(1);
         Mono.justOrEmpty(1);
         Mono.justOrEmpty(null);

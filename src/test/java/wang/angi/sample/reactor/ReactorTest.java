@@ -11,6 +11,7 @@ import reactor.util.function.Tuple2;
 
 import java.time.Duration;
 import java.util.Date;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -28,7 +29,7 @@ public class ReactorTest {
 
     @Test
     public void testViaStepVerifier() throws Exception {
-        StepVerifier.create(Flux.range(1,6))
+        StepVerifier.create(Flux.range(1, 6))
                 .expectNext(1, 2, 3, 4, 5, 6)
                 .expectComplete()
                 .verify();
@@ -49,10 +50,38 @@ public class ReactorTest {
     }
 
     @Test
-    public void testSyncToAsync() throws InterruptedException {
+    public void testFromCallable() throws InterruptedException {
         CountDownLatch countDownLatch = new CountDownLatch(1);
         Mono.fromCallable(() -> getStringSync())    // 1
                 .subscribeOn(Schedulers.elastic())  // 2
+                .subscribe(logger::info, null, countDownLatch::countDown);
+        logger.info("main over");
+        countDownLatch.await(10, TimeUnit.SECONDS);
+    }
+
+    private CompletableFuture<String> getCompletableFuture() {
+        logger.info("begin getCompletableFuture");
+        final CompletableFuture<String> completableFuture = new CompletableFuture<>();
+        // 其他线程完成future
+        new Thread(() -> {
+            logger.info("begin sleep");
+            try {
+                TimeUnit.SECONDS.sleep(5);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            logger.info("end sleep");
+            completableFuture.complete("result");
+        }).start();
+        logger.info("end getCompletableFuture");
+        return completableFuture;
+    }
+
+    @Test
+    public void testFromFuture() throws InterruptedException {
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        Mono.fromFuture(this::getCompletableFuture)
+                // 接下来由future完成线程执行
                 .subscribe(logger::info, null, countDownLatch::countDown);
         logger.info("main over");
         countDownLatch.await(10, TimeUnit.SECONDS);
@@ -129,9 +158,9 @@ public class ReactorTest {
     public void testMap() {
         StepVerifier.create(
                 Flux.range(0, 6)
-                        .map(i -> i * 2))
+                        .map(i -> i * 2)
+                        .doOnNext(System.out::println))
                 .expectNext(0, 2, 4, 6, 8, 10).verifyComplete();
-
     }
 
     @Test
@@ -158,7 +187,7 @@ public class ReactorTest {
 
     @Test
     public void testFlatMapSequential() {
-        // a/c/b/d/f/e
+        // a/b/c/d/e/f
         StepVerifier.create(
                 Flux.just("abc", "def")
                         .flatMapSequential(i -> Flux.fromArray(i.split("\\s*"))
@@ -180,7 +209,7 @@ public class ReactorTest {
     @Test
     public void testZip() {
         StepVerifier.create(
-                Flux.zip(Flux.range(0,2),Flux.range(5,2)).doOnNext(System.out::println))
+                Flux.zip(Flux.range(0, 2), Flux.range(5, 2)).doOnNext(System.out::println))
                 .expectNextCount(2)
                 .verifyComplete();
 
