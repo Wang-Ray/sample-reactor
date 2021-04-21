@@ -27,7 +27,7 @@ public class StartupMain {
         Flux.just(1, 2, 3, 4, 5, 6).subscribe(System.out::println, System.err::println, () -> System.out.println("over"));
 
         Flux.just(1, 2, 3, 4, 5, 6).subscribe(System.out::println, System.err::println, () -> System.out.println("over"), subscription -> {
-            System.out.println("subscribe");
+            logger.info("subscriptionConsumer");
             subscription.request(1);
         });
 

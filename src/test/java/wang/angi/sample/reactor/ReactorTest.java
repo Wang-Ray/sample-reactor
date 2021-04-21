@@ -19,50 +19,91 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ReactorTest {
     static Logger logger = LoggerFactory.getLogger(ReactorTest.class);
 
-    private Flux<Integer> generateFluxFrom1To6() {
-        return Flux.just(1, 2, 3, 4, 5, 6);
-    }
-
-    private Mono<Integer> generateMonoWithError() {
-        return Mono.error(new Exception("some error"));
-    }
-
     @Test
-    public void testViaStepVerifier() throws Exception {
+    public void testNormal() throws Exception {
         StepVerifier.create(Flux.range(1, 6))
                 .expectNext(1, 2, 3, 4, 5, 6)
                 .expectComplete()
                 .verify();
-        StepVerifier.create(generateMonoWithError())
+    }
+
+    @Test
+    public void testComplete() {
+        StepVerifier.create(Mono.empty())
+                .expectComplete()
+                .verify();
+    }
+
+    @Test
+    public void testError() {
+        StepVerifier.create(Mono.error(new Exception("some error")))
                 .expectErrorMessage("some error")
                 .verify();
     }
 
-    private String getStringSync() {
-        try {
-            logger.info("begin");
-            TimeUnit.SECONDS.sleep(2);
-            logger.info("end");
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        return "Hello, Reactor!";
+    @Test
+    public void testFromRunnable() throws InterruptedException {
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        Mono.fromRunnable(() -> {
+            try {
+                logger.info("begin Runnable");
+                TimeUnit.SECONDS.sleep(2);
+                logger.info("end Runnable");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        })
+                .subscribe(null, null, countDownLatch::countDown);
+        logger.info("main over");
+        countDownLatch.await(10, TimeUnit.SECONDS);
     }
 
     @Test
     public void testFromCallable() throws InterruptedException {
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        Mono.fromCallable(() -> getStringSync())    // 1
-                .subscribeOn(Schedulers.elastic())  // 2
+        Mono.fromCallable(() -> {
+            try {
+                logger.info("begin Callable");
+                TimeUnit.SECONDS.sleep(2);
+                logger.info("end Callable");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            return "Hello, Reactor!";
+        }).map(str -> {
+            logger.info("map: " + str);
+            return str + ", Welcome!";
+        })
                 .subscribe(logger::info, null, countDownLatch::countDown);
         logger.info("main over");
         countDownLatch.await(10, TimeUnit.SECONDS);
     }
 
-    private CompletableFuture<String> getCompletableFuture() {
+    @Test
+    public void testFromSupplier() throws InterruptedException {
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        Mono.fromSupplier(() -> {
+            try {
+                logger.info("begin Supplier");
+                TimeUnit.SECONDS.sleep(2);
+                logger.info("end Supplier");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            return "Hello, Reactor!";
+        }).map(str -> {
+            logger.info("map: " + str);
+            return str + ", Welcome!";
+        })
+                .subscribe(logger::info, null, countDownLatch::countDown);
+        logger.info("main over");
+        countDownLatch.await(10, TimeUnit.SECONDS);
+    }
+
+    private CompletableFuture<String> getCompletableFuture(String name) {
         logger.info("begin getCompletableFuture");
         final CompletableFuture<String> completableFuture = new CompletableFuture<>();
-        // 其他线程完成future
+        // 模拟其他线程完成future（比如Dubbo异步调用应答）
         new Thread(() -> {
             logger.info("begin sleep");
             try {
@@ -71,7 +112,7 @@ public class ReactorTest {
                 e.printStackTrace();
             }
             logger.info("end sleep");
-            completableFuture.complete("result");
+            completableFuture.complete("hello, " + name);
         }).start();
         logger.info("end getCompletableFuture");
         return completableFuture;
@@ -80,8 +121,12 @@ public class ReactorTest {
     @Test
     public void testFromFuture() throws InterruptedException {
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        Mono.fromFuture(this::getCompletableFuture)
+        Mono.fromFuture(getCompletableFuture("ray"))
                 // 接下来由future完成线程执行
+                .map(str -> {
+                    logger.info("map: " + str);
+                    return str + ", welcome!";
+                })
                 .subscribe(logger::info, null, countDownLatch::countDown);
         logger.info("main over");
         countDownLatch.await(10, TimeUnit.SECONDS);
