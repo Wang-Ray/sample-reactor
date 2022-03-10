@@ -1,18 +1,15 @@
 package wang.angi.sample.reactor;
 
-import org.reactivestreams.Subscriber;
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+
 import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.Disposable;
+
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
-
-import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 public class StartupMain {
     static Logger logger = LoggerFactory.getLogger(StartupMain.class);
@@ -69,7 +66,7 @@ public class StartupMain {
             logger.info("map-1: " + i);
             return i / (i - 3);
         }).map(i -> {
-            logger.info("map0: " + i);
+            logger.info("map-2: " + i);
             return i * 1;
         }).subscribe(i -> {
             try {
@@ -77,7 +74,7 @@ public class StartupMain {
             } catch (Throwable e) {
                 e.printStackTrace();
             }
-            logger.info(i + "");
+            logger.info("subscribe: "+i + "");
         }, System.err::println);
 
         logger.info("main over");

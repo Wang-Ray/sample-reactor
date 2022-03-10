@@ -81,6 +81,7 @@ public class ReactorTest {
 
     @Test
     public void testFromSupplier() throws InterruptedException {
+    	logger.info("main begin");
         CountDownLatch countDownLatch = new CountDownLatch(1);
         Mono.fromSupplier(() -> {
             try {
@@ -100,6 +101,21 @@ public class ReactorTest {
         countDownLatch.await(10, TimeUnit.SECONDS);
     }
 
+    @Test
+    public void testFromFuture() throws InterruptedException {
+    	logger.info("main begin");
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        Mono.fromFuture(getCompletableFuture("ray"))
+                // 接下来由future完成线程执行
+                .map(str -> {
+                    logger.info("map: " + str);
+                    return str + ", welcome!";
+                })
+                .subscribe(logger::info, null, countDownLatch::countDown);
+        logger.info("main over");
+        countDownLatch.await(10, TimeUnit.SECONDS);
+    }
+    
     private CompletableFuture<String> getCompletableFuture(String name) {
         logger.info("begin getCompletableFuture");
         final CompletableFuture<String> completableFuture = new CompletableFuture<>();
@@ -118,18 +134,57 @@ public class ReactorTest {
         return completableFuture;
     }
 
+
     @Test
-    public void testFromFuture() throws InterruptedException {
+    public void testFromPublisher() throws InterruptedException {
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        Mono.fromFuture(getCompletableFuture("ray"))
-                // 接下来由future完成线程执行
-                .map(str -> {
-                    logger.info("map: " + str);
-                    return str + ", welcome!";
-                })
+        Mono.from(Mono.just("test").map(
+                str -> {
+                    logger.info("from map: " + str);
+                    try {
+                        TimeUnit.SECONDS.sleep(5);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    return str + ", from map!";
+                }
+        )).map(str -> {
+            logger.info("map: " + str);
+            return str + ", Welcome!";
+        })
                 .subscribe(logger::info, null, countDownLatch::countDown);
         logger.info("main over");
         countDownLatch.await(10, TimeUnit.SECONDS);
+    }
+    
+    @Test
+    public void testCreate() {
+    	final AtomicInteger count = new AtomicInteger(1);   // 1
+        Flux.create(sink -> {
+            logger.info("begin sink: " + count.get());
+            // emit signal
+            sink.next(count.get() + " : " + new Date());   // 2
+//            try {
+//                TimeUnit.SECONDS.sleep(1);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+            if (count.getAndIncrement() >= 5) {
+                // emit signal
+                sink.complete();     // 3
+            }
+            logger.info("end sink: " + count.get());
+        }).subscribe(t -> {
+            try {
+                TimeUnit.SECONDS.sleep(1);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            logger.info(t.toString());
+        }, System.err::println, () -> {
+            logger.info("complete");
+        });  // 4
+        logger.info("main over!");
     }
 
     @Test
